@@ -1,0 +1,134 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  meetings Meeting[]
+
+  @@map("users")
+}
+
+// ─── Meetings ─────────────────────────────────────────────────────────────────
+
+model Meeting {
+  id          String   @id @default(uuid())
+  title       String
+  meetingDate DateTime @map("meeting_date")
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  creator              User                  @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  participants         MeetingParticipant[]
+  transcriptSegments   TranscriptSegment[]
+  analysis             MeetingAnalysis?
+  actionItems          ActionItem[]
+
+  @@map("meetings")
+}
+
+// ─── Meeting Participants ─────────────────────────────────────────────────────
+
+model MeetingParticipant {
+  id        String  @id @default(uuid())
+  meetingId String  @map("meeting_id")
+  email     String
+
+  // Relations
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, email])
+  @@map("meeting_participants")
+}
+
+// ─── Transcript Segments ──────────────────────────────────────────────────────
+
+model TranscriptSegment {
+  id        String  @id @default(uuid())
+  meetingId String  @map("meeting_id")
+  timestamp String  // e.g. "00:05", "01:23"
+  speaker   String
+  text      String  @db.Text
+
+  // Relations
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("transcript_segments")
+}
+
+// ─── Meeting Analysis ─────────────────────────────────────────────────────────
+
+model MeetingAnalysis {
+  id        String   @id @default(uuid())
+  meetingId String   @unique @map("meeting_id")
+  summary   Json     // Array of summary points with citations
+  decisions Json     // Array of decisions with citations
+  followUps Json     @map("follow_ups") // Array of follow-up items with citations
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("meeting_analysis")
+}
+
+// ─── Action Items ─────────────────────────────────────────────────────────────
+
+enum ActionItemStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model ActionItem {
+  id        String           @id @default(uuid())
+  meetingId String           @map("meeting_id")
+  task      String           @db.Text
+  assignee  String
+  dueDate   DateTime         @map("due_date")
+  status    ActionItemStatus @default(PENDING)
+  citations Json             // Array of { timestamp: string } objects
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  meeting         Meeting          @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  reminderHistory ReminderHistory[]
+
+  @@map("action_items")
+}
+
+// ─── Reminder History ─────────────────────────────────────────────────────────
+
+model ReminderHistory {
+  id             String   @id @default(uuid())
+  actionItemId   String   @map("action_item_id")
+  sentAt         DateTime @default(now()) @map("sent_at")
+  provider       String   @default("slack") // "slack", "email", etc.
+  responseStatus String   @map("response_status") // "success", "failed"
+
+  // Relations
+  actionItem ActionItem @relation(fields: [actionItemId], references: [id], onDelete: Cascade)
+
+  @@map("reminder_history")
+}
