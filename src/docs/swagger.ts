@@ -64,7 +64,9 @@ const options: swaggerJsdoc.Options = {
       { name: 'System', description: 'Health check and evaluation endpoints' },
     ],
   },
-  apis: ['./src/modules/**/*.routes.ts', './src/modules/**/*.controller.ts'],
+  apis: process.env.NODE_ENV === 'production'
+    ? ['./dist/modules/**/*.routes.js', './dist/modules/**/*.controller.js', './dist/app.js']
+    : ['./src/modules/**/*.routes.ts', './src/modules/**/*.controller.ts', './src/app.ts'],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
