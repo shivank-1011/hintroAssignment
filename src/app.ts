@@ -84,7 +84,7 @@ app.get('/api/evaluation', (_req: Request, res: Response) => {
     candidateName: 'Shivank Gupta',
     email: 'guptashivu544@gmail.com',
     repositoryUrl: 'https://github.com/shivank-1011/hintroAssignment.git',
-    deployedUrl: process.env.DEPLOYED_URL || 'https://hintro.onrender.com',
+    deployedUrl: process.env.DEPLOYED_URL || 'https://hintroassignment.onrender.com',
     externalIntegration: 'Slack Incoming Webhook',
     features: [
       'JWT Authentication (register + login)',
