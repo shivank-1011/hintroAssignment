@@ -121,6 +121,11 @@ export const analyzeMeeting = async (meetingId: string, userId: string) => {
   const analysisResult = validateAnalysisResult(parsedResponse);
 
   const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // 1. Delete existing action items for this meeting to prevent duplicates on re-analysis
+    await tx.actionItem.deleteMany({
+      where: { meetingId },
+    });
+
     const analysis = await tx.meetingAnalysis.upsert({
       where: { meetingId },
       create: {
@@ -137,18 +142,24 @@ export const analyzeMeeting = async (meetingId: string, userId: string) => {
     });
 
     const actionItems = await Promise.all(
-      analysisResult.actionItems.map((item) =>
-        tx.actionItem.create({
+      analysisResult.actionItems.map((item) => {
+        const parsedDueDate = (() => {
+          if (!item.dueDate) return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+          const d = new Date(item.dueDate);
+          return isNaN(d.getTime()) ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : d;
+        })();
+
+        return tx.actionItem.create({
           data: {
             meetingId,
             task: item.task,
             assignee: item.assignee || 'Unassigned',
-            dueDate: item.dueDate ? new Date(item.dueDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            dueDate: parsedDueDate,
             citations: item.citations as unknown as Prisma.InputJsonValue,
             status: 'PENDING',
           },
-        })
-      )
+        });
+      })
     );
 
     return { analysis, actionItems };
